@@ -16,5 +16,7 @@ public class Site {
     private Location siteLocation;
     private String siteName;
     private Integer demandVolume;
+    private byte[] image1;
+    private byte[] image2;
     private boolean isCollectionRequired;
 }

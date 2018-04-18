@@ -12,7 +12,4 @@ import org.springframework.data.mongodb.core.mapping.Document;
 public class Location {
     private Double longitude;
     private Double latitude;
-    private Integer code;
-    private String city;
-    private String Country;
 }

@@ -10,20 +10,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @Controller
 public class HomeController {
 
-    @Autowired
-    private SiteRepository siteRepository;
-
     @RequestMapping("/")
     public String index() {
         return "index";
     }
 
-    private void updatSiteData() {
-        for (Site site : siteRepository.findAll())
-        {
-            //TODO: add volume estimation API consumption code;
-            siteRepository.save(site);
-        }
-    }
+
     
 }
