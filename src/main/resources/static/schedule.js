@@ -6,6 +6,7 @@ var intervalTimer;
 var vehicleRouteDirections;
 var directionsTaskQueue;
 var directionsTaskTimer;
+var solution;
 
 function initMap() {
     var mapCanvas = document.getElementById('map-canvas');
@@ -23,167 +24,107 @@ ajaxError = function (jqXHR, textStatus, errorThrown) {
     alert("Error: " + errorThrown);
 };
 
-loadSolution = function () {
+schedule = function () {
     $.ajax({
-        url: "<%=application.getContextPath()%>/rest/vehiclerouting/solution",
-        type: "GET",
-        dataType: "json",
-        success: function (solution) {
-            var zoomBounds = new google.maps.LatLngBounds();
-            $.each(solution.customerList, function (index, customer) {
-                var latLng = new google.maps.LatLng(customer.latitude, customer.longitude);
-                zoomBounds.extend(latLng);
-                var marker = new google.maps.Marker({
-                    position: latLng,
-                    title: customer.locationName + ": Deliver " + customer.demand + " items.",
+            url: "/schedule",
+            type: "GET",
+            contentType: "application/json",
+            url: "/schedule",
+            dataType: 'json',
+            cache: false,
+            timeout: 600000,
+            success: function (response) {
+                solution = response;
+                initMap();
+                loadSolution();
+            }, error: function (jqXHR, textStatus, errorThrown) {
+                         ajaxError(jqXHR, textStatus, errorThrown)}
+    });
+};
+
+updateScheduleList = function () {
+    $('#schedule-list').empty();
+	var lineOutput = "";
+    var countTrucks = 0;
+    $.each(solution.vehicleRouteList, function (index, vehicleRoute) {
+        if(vehicleRoute.customerList.length>0){
+            countTrucks++;
+        }
+    });
+    lineOutput = lineOutput.concat("<p>Number of trucks used : " + countTrucks + "</p>");
+    lineOutput = lineOutput.concat("<ol>");
+    $.each(solution.vehicleRouteList, function (index, vehicleRoute) {
+        if(vehicleRoute.customerList.length>0){
+            lineOutput = lineOutput.concat("<li>Truck " + index + " :");
+            lineOutput = lineOutput.concat("<ul>");
+            $.each(vehicleRoute.customerList, function (index, customer) {
+                lineOutput = lineOutput.concat("<li>Location Name : " + customer.locationName + " (" + customer.latitude + "," + customer.longitude + ")</li>");
+            });
+            lineOutput = lineOutput.concat("</ul>");
+            lineOutput = lineOutput.concat("</li>");
+        }
+    });
+    lineOutput = lineOutput.concat("</ol>");
+	console.log(lineOutput);
+	$('#schedule-list').append(lineOutput);
+};
+
+loadSolution = function () {
+    var zoomBounds = new google.maps.LatLngBounds();
+    $.each(solution.customerList, function (index, customer) {
+        var latLng = new google.maps.LatLng(customer.latitude, customer.longitude);
+        zoomBounds.extend(latLng);
+        var marker = new google.maps.Marker({
+            position: latLng,
+            title: customer.locationName + ": Collection of: " + customer.demand + " Litres.",
+            map: map
+        });
+        google.maps.event.addListener(marker, 'click', function () {
+            new google.maps.InfoWindow({
+                content: customer.locationName + "</br>Collection of:" + customer.demand + " Litres."
+            }).open(map, marker);
+        })
+    });
+    if (vehicleRouteLines != undefined) {
+        for (var i = 0; i < vehicleRouteLines.length; i++) {
+            vehicleRouteLines[i].setMap(null);
+        }
+    }
+    if (vehicleRouteDirections != undefined) {
+        for (var i = 0; i < vehicleRouteDirections.length; i++) {
+            vehicleRouteDirections[i].setMap(null);
+        }
+    }
+    vehicleRouteLines = undefined;
+    vehicleRouteDirections = [];
+    directionsTaskQueue = [];
+    updateScheduleList();
+    $.each(solution.vehicleRouteList, function (index, vehicleRoute) {
+        var depotLocation = new google.maps.LatLng(vehicleRoute.depotLatitude, vehicleRoute.depotLongitude);
+        var marker = new google.maps.Marker({
+                    position: depotLocation,
+                    title: vehicleRoute.depotLocationName + ": Depot",
                     map: map
                 });
-                google.maps.event.addListener(marker, 'click', function () {
-                    new google.maps.InfoWindow({
-                        content: customer.locationName + "</br>Deliver " + customer.demand + " items."
-                    }).open(map, marker);
-                })
-            });
-            map.fitBounds(zoomBounds);
-        }, error: function (jqXHR, textStatus, errorThrown) {
-            ajaxError(jqXHR, textStatus, errorThrown)
-        }
+        google.maps.event.addListener(marker, 'click', function () {
+            new google.maps.InfoWindow({
+                content: vehicleRoute.depotLocationName + "<br/>Depot"
+            }).open(map, marker)});
+        var previousLocation = depotLocation;
+        $.each(vehicleRoute.customerList, function (index, customer) {
+            var location = new google.maps.LatLng(customer.latitude, customer.longitude);
+            directionsTaskQueue.push([previousLocation, location, vehicleRoute.hexColor]);
+            previousLocation = location;
+        });
+        directionsTaskQueue.push([previousLocation, depotLocation, vehicleRoute.hexColor]);
     });
+    $('#scoreValue').text(solution.feasible ? solution.distance : "Not solved");
+    directionsTaskTimer = setInterval(function () {
+        sendDirectionsRequest()
+    }, 1000);
+    map.fitBounds(zoomBounds);
 };
 
-updateSolution = function () {
-    $.ajax({
-        url: "<%=application.getContextPath()%>/rest/vehiclerouting/solution",
-        type: "GET",
-        dataType: "json",
-        success: function (solution) {
-            if (vehicleRouteLines != undefined) {
-                for (var i = 0; i < vehicleRouteLines.length; i++) {
-                    vehicleRouteLines[i].setMap(null);
-                }
-            }
-            if (vehicleRouteDirections != undefined) {
-                for (var i = 0; i < vehicleRouteDirections.length; i++) {
-                    vehicleRouteDirections[i].setMap(null);
-                }
-            }
-            vehicleRouteLines = [];
-            vehicleRouteDirections = undefined;
-            $.each(solution.vehicleRouteList, function (index, vehicleRoute) {
-                var locations = [new google.maps.LatLng(vehicleRoute.depotLatitude, vehicleRoute.depotLongitude)];
-                $.each(vehicleRoute.customerList, function (index, customer) {
-                    locations.push(new google.maps.LatLng(customer.latitude, customer.longitude));
-                });
-                locations.push(new google.maps.LatLng(vehicleRoute.depotLatitude, vehicleRoute.depotLongitude));
-                var line = new google.maps.Polyline({
-                    path: locations,
-                    geodesic: true,
-                    strokeColor: vehicleRoute.hexColor,
-                    strokeOpacity: 0.8,
-                    strokeWeight: 4
-                });
-                line.setMap(map);
-                vehicleRouteLines.push(line);
-            });
-            $('#scoreValue').text(solution.feasible ? solution.distance : "Not solved");
-        }, error: function (jqXHR, textStatus, errorThrown) {
-            ajaxError(jqXHR, textStatus, errorThrown)
-        }
-    });
-};
-
-solve = function () {
-    $('#solveButton').attr("disabled", "disabled");
-    $('#resolveDirectionsButton').attr("disabled", "disabled");
-    if (directionsTaskTimer != undefined) {
-        window.clearInterval(directionsTaskTimer);
-        directionsTaskTimer = undefined;
-    }
-    var form = $('#fileUploadForm')[0];
-    var data = new FormData(form);
-    $.ajax({
-         url: "<%=application.getContextPath()%>/rest/vehiclerouting/solution/solve",
-        type: "POST",
-        enctype: 'multipart/form-data',
-        processData: false, // Important!
-        contentType: false,
-        cache: false,
-        data: data,
-        success: function (message) {
-            console.log(message.text);
-            initMap();
-            loadSolution();
-            intervalTimer = setInterval(function () {
-                updateSolution()
-            }, 2000);
-            $('#terminateEarlyButton').removeAttr("disabled");
-        }, error: function (jqXHR, textStatus, errorThrown) {
-            ajaxError(jqXHR, textStatus, errorThrown)
-        }
-    });
-};
-
-terminateEarly = function () {
-    $('#terminateEarlyButton').attr("disabled", "disabled");
-    window.clearInterval(intervalTimer);
-    if (directionsTaskTimer != undefined) {
-        window.clearInterval(directionsTaskTimer);
-        directionsTaskTimer = undefined;
-    }
-    $.ajax({
-        url: "<%=application.getContextPath()%>/rest/vehiclerouting/solution/terminateEarly",
-        type: "POST",
-        data: "",
-        dataType: "json",
-        success: function (message) {
-            console.log(message.text);
-            updateSolution();
-            $('#solveButton').removeAttr("disabled");
-            $('#resolveDirectionsButton').removeAttr("disabled");
-        }, error: function (jqXHR, textStatus, errorThrown) {
-            ajaxError(jqXHR, textStatus, errorThrown)
-        }
-    });
-};
-
-resolveDirections = function () {
-    $.ajax({
-        url: "<%=application.getContextPath()%>/rest/vehiclerouting/solution",
-        type: "GET",
-        dataType: "json",
-        success: function (solution) {
-            if (vehicleRouteLines != undefined) {
-                for (var i = 0; i < vehicleRouteLines.length; i++) {
-                    vehicleRouteLines[i].setMap(null);
-                }
-            }
-            if (vehicleRouteDirections != undefined) {
-                for (var i = 0; i < vehicleRouteDirections.length; i++) {
-                    vehicleRouteDirections[i].setMap(null);
-                }
-            }
-            vehicleRouteLines = undefined;
-            vehicleRouteDirections = [];
-            directionsTaskQueue = [];
-            $.each(solution.vehicleRouteList, function (index, vehicleRoute) {
-                var depotLocation = new google.maps.LatLng(vehicleRoute.depotLatitude, vehicleRoute.depotLongitude);
-                var previousLocation = depotLocation;
-                $.each(vehicleRoute.customerList, function (index, customer) {
-                    var location = new google.maps.LatLng(customer.latitude, customer.longitude);
-                    directionsTaskQueue.push([previousLocation, location, vehicleRoute.hexColor]);
-                    previousLocation = location;
-                });
-                directionsTaskQueue.push([previousLocation, depotLocation, vehicleRoute.hexColor]);
-            });
-            $('#scoreValue').text(solution.feasible ? solution.distance : "Not solved");
-            directionsTaskTimer = setInterval(function () {
-                sendDirectionsRequest()
-            }, 1000); // 1 per second to avoid limit set by Google API for freeloaders
-        }, error: function (jqXHR, textStatus, errorThrown) {
-            ajaxError(jqXHR, textStatus, errorThrown)
-        }
-    });
-};
 sendDirectionsRequest = function () {
     var task = directionsTaskQueue.shift();
     if (task == undefined) {
@@ -250,6 +191,7 @@ renderDirections = function (origin, destination, hexColor) {
         }
     });
 };
+
 function sleep(milliseconds) {
     console.log("Sleeping " + milliseconds + " ms");
     // TODO Don't hang the browser page like this
