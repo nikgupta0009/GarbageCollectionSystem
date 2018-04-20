@@ -92,8 +92,7 @@ public class ScheduleController {
     }
 
     @GetMapping("/vrp")
-    public @ResponseBody
-    String getFile() {
+    public @ResponseBody String getFile() throws Exception {
         List<Site> siteList = siteRepository.findAll();
         List<Truck> truckList = truckRepository.findAll();
         createVrpData(siteList, truckList);
@@ -104,7 +103,7 @@ public class ScheduleController {
         restTemplate = new RestTemplateBuilder().build();
     }
 
-    private File createVrpData(List<Site> siteList, List<Truck> vehicleList) {
+    private File createVrpData(List<Site> siteList, List<Truck> vehicleList) throws Exception {
         siteList.sort(new Comparator<Site>() {
             @Override
             public int compare(Site o1, Site o2) {
@@ -132,12 +131,9 @@ public class ScheduleController {
             writeDepotSection(vrpWriter, siteList, depotListSize);
             vrpWriter.flush();
             vrpWriter.close();
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
         } catch (Exception e) {
             e.printStackTrace();
+            throw e;
         }
         return vrpFile;
     }
@@ -146,7 +142,7 @@ public class ScheduleController {
         String filename = location_name
                 + "-n" + siteListSize + "-k" + vehicleListSize;
         String rootDir = System.getProperty("user.dir");
-        String fileDirLocation = new File(rootDir + "\\vrp").getAbsolutePath() + "\\";
+        String fileDirLocation = new File(rootDir + "/tmp").getAbsolutePath() + "/";
         File fileDir = new File(fileDirLocation);
         if (fileDir.exists()) {
             FileSystemUtils.deleteRecursively(fileDir);
