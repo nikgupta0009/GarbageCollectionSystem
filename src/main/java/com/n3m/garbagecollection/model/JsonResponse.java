@@ -11,7 +11,7 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class JsonResponse {
 
-    private List<List<Double>> weights;
+    private List<List<Double>> distances;
     private Info info;
 
 }

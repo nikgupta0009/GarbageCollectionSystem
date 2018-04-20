@@ -184,7 +184,7 @@ public class ScheduleController {
 
             for(Double distance : distanceList)
             {
-                vrpWriter.write(distanceFormat.format(distance/100) + " ");
+                vrpWriter.write(distanceFormat.format(distance/1000) + " ");
             }
             vrpWriter.write("\n");
         }
@@ -198,13 +198,13 @@ public class ScheduleController {
         for(Site site : siteList) {
               uriBuilder = uriBuilder.queryParam("point", site.getSiteLocation().getLatitude() + "," + site.getSiteLocation().getLongitude());
         }
-        uri = uriBuilder.queryParam("vehicle", "car").queryParam("locale", "de")
+        uri = uriBuilder.queryParam("vehicle", "car").queryParam("locale", "de").queryParam("out_array","distances")
                 .queryParam("key", apiKey).build();
 
         System.out.println(uri.toString());
 
         JsonResponse jsonResponse = restTemplate.getForObject(uri, JsonResponse.class);
-        return jsonResponse.getWeights();
+        return jsonResponse.getDistances();
     }
 
     private void writeDemandSection(BufferedWriter vrpWriter, List<Site> locationList) throws IOException {
