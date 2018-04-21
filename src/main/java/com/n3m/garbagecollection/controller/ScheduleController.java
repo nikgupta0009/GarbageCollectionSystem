@@ -74,11 +74,9 @@ public class ScheduleController {
         sessionHeaders.add("Cookie", "JSESSIONID=" + jsessionId);
         HttpEntity<String> sessionHttpEntity = new HttpEntity<>(sessionHeaders);
         ResponseEntity<String> solution = null;
-        for(int i=0;i<50;i++)
-        {
-            solution = restTemplate.exchange("https://vehiclerouting.herokuapp.com/rest/vehiclerouting/solution",
-                            HttpMethod.GET,sessionHttpEntity,String.class);
-        }
+        Thread.sleep(20000);
+        solution = restTemplate.exchange("https://vehiclerouting.herokuapp.com/rest/vehiclerouting/solution",
+                HttpMethod.GET,sessionHttpEntity,String.class);
         restTemplate.exchange("https://vehiclerouting.herokuapp.com/rest/vehiclerouting/solution/terminateEarly",
                 HttpMethod.POST,sessionHttpEntity,String.class);
         return solution.getBody();

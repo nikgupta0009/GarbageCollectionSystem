@@ -2,13 +2,19 @@
     max-width: 100%;
 }
 
-.main-page-header h1 {
-    font-size: 54px;
-    font-weight: bold;
-    letter-spacing: -1px;
-    line-height: 1;
-    padding-bottom: 17px;
-    border-bottom: 2px solid #dddddd;
+.splash {
+    height: 18em;
+    padding-top: 6em;
+    margin-bottom: 2em;
+    background-image:
+        linear-gradient(
+            rgba(0, 0, 0, 0.5),
+            rgba(0, 0, 0, 0.5)
+        ),
+        url(banner.jpg);
+    background-size: cover;
+    color: #fff;
+    text-align: center;
 }
 
 table {

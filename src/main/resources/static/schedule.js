@@ -8,6 +8,12 @@ var directionsTaskQueue;
 var directionsTaskTimer;
 var solution;
 
+$(document).ready(function() {
+    $("#info-div").show();
+    $("#solution-div").hide();
+});
+
+
 function initMap() {
     var mapCanvas = document.getElementById('map-canvas');
     var mapOptions = {
@@ -24,6 +30,11 @@ ajaxError = function (jqXHR, textStatus, errorThrown) {
     alert("Error: " + errorThrown);
 };
 
+showSolutionDiv = function(){
+    $("#info-div").hide();
+	$("#solution-div").show();
+};
+
 schedule = function () {
     $.ajax({
             url: "/schedule",
@@ -36,6 +47,7 @@ schedule = function () {
             success: function (response) {
                 solution = response;
                 initMap();
+                showSolutionDiv();
                 loadSolution();
             }, error: function (jqXHR, textStatus, errorThrown) {
                          ajaxError(jqXHR, textStatus, errorThrown)}
